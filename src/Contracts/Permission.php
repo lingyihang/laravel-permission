@@ -1,6 +1,6 @@
 <?php
 
-namespace Spatie\Permission\Contracts;
+namespace Yihang\Permission\Contracts;
 
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
@@ -18,32 +18,33 @@ interface Permission
      *
      * @param string $name
      * @param string|null $guardName
+     * @param int $companyId
      *
-     * @throws \Spatie\Permission\Exceptions\PermissionDoesNotExist
+     * @throws \Yihang\Permission\Exceptions\PermissionDoesNotExist
      *
      * @return Permission
      */
-    public static function findByName(string $name, $guardName): self;
+    public static function findByName(string $name, $guardName, int $companyId): self;
 
     /**
      * Find a permission by its id.
      *
      * @param int $id
      * @param string|null $guardName
-     *
-     * @throws \Spatie\Permission\Exceptions\PermissionDoesNotExist
+     * @param int $companyId
+     * @throws \Yihang\Permission\Exceptions\PermissionDoesNotExist
      *
      * @return Permission
      */
-    public static function findById(int $id, $guardName): self;
+    public static function findById(int $id, $guardName, int $companyId): self;
 
     /**
      * Find or Create a permission by its name and guard name.
      *
      * @param string $name
      * @param string|null $guardName
-     *
+     * @param int $companyId
      * @return Permission
      */
-    public static function findOrCreate(string $name, $guardName): self;
+    public static function findOrCreate(string $name, $guardName, int $companyId): self;
 }

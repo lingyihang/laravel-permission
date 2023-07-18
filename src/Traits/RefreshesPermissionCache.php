@@ -1,8 +1,8 @@
 <?php
 
-namespace Spatie\Permission\Traits;
+namespace Yihang\Permission\Traits;
 
-use Spatie\Permission\PermissionRegistrar;
+use Yihang\Permission\PermissionRegistrar;
 
 trait RefreshesPermissionCache
 {

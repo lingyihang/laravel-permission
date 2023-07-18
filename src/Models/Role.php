@@ -1,16 +1,16 @@
 <?php
 
-namespace Spatie\Permission\Models;
+namespace Yihang\Permission\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Spatie\Permission\Contracts\Role as RoleContract;
-use Spatie\Permission\Exceptions\GuardDoesNotMatch;
-use Spatie\Permission\Exceptions\RoleAlreadyExists;
-use Spatie\Permission\Exceptions\RoleDoesNotExist;
-use Spatie\Permission\Guard;
-use Spatie\Permission\Traits\HasPermissions;
-use Spatie\Permission\Traits\RefreshesPermissionCache;
+use Yihang\Permission\Contracts\Role as RoleContract;
+use Yihang\Permission\Exceptions\GuardDoesNotMatch;
+use Yihang\Permission\Exceptions\RoleAlreadyExists;
+use Yihang\Permission\Exceptions\RoleDoesNotExist;
+use Yihang\Permission\Guard;
+use Yihang\Permission\Traits\HasPermissions;
+use Yihang\Permission\Traits\RefreshesPermissionCache;
 
 class Role extends Model implements RoleContract
 {
@@ -22,7 +22,7 @@ class Role extends Model implements RoleContract
     public function __construct(array $attributes = [])
     {
         $attributes['guard_name'] = $attributes['guard_name'] ?? config('auth.defaults.guard');
-
+        $attributes['company_id'] = $attributes['company_id']??0;
         parent::__construct($attributes);
     }
 
@@ -34,9 +34,9 @@ class Role extends Model implements RoleContract
     public static function create(array $attributes = [])
     {
         $attributes['guard_name'] = $attributes['guard_name'] ?? Guard::getDefaultName(static::class);
-
-        if (static::where('name', $attributes['name'])->where('guard_name', $attributes['guard_name'])->first()) {
-            throw RoleAlreadyExists::create($attributes['name'], $attributes['guard_name']);
+        $attributes['company_id'] = $attributes['company_id']??0;
+        if (static::where('name', $attributes['name'])->where('guard_name', $attributes['guard_name'])->where('company_id',$attributes['company_id'])->first()) {
+            throw RoleAlreadyExists::create($attributes['name'], $attributes['guard_name'], $attributes['company_id']);
         }
 
         return static::query()->create($attributes);
@@ -75,9 +75,9 @@ class Role extends Model implements RoleContract
      * @param string $name
      * @param string|null $guardName
      *
-     * @return \Spatie\Permission\Contracts\Role|\Spatie\Permission\Models\Role
+     * @return \Yihang\Permission\Contracts\Role|\Yihang\Permission\Models\Role
      *
-     * @throws \Spatie\Permission\Exceptions\RoleDoesNotExist
+     * @throws \Yihang\Permission\Exceptions\RoleDoesNotExist
      */
     public static function findByName(string $name, $guardName = null): RoleContract
     {
@@ -111,7 +111,7 @@ class Role extends Model implements RoleContract
      * @param string $name
      * @param string|null $guardName
      *
-     * @return \Spatie\Permission\Contracts\Role
+     * @return \Yihang\Permission\Contracts\Role
      */
     public static function findOrCreate(string $name, $guardName = null): RoleContract
     {
@@ -133,7 +133,7 @@ class Role extends Model implements RoleContract
      *
      * @return bool
      *
-     * @throws \Spatie\Permission\Exceptions\GuardDoesNotMatch
+     * @throws \Yihang\Permission\Exceptions\GuardDoesNotMatch
      */
     public function hasPermissionTo($permission): bool
     {

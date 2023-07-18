@@ -1,6 +1,6 @@
 <?php
 
-namespace Spatie\Permission;
+namespace Yihang\Permission;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;

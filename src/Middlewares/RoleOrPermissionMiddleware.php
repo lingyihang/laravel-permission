@@ -1,10 +1,10 @@
 <?php
 
-namespace Spatie\Permission\Middlewares;
+namespace Yihang\Permission\Middlewares;
 
 use Closure;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Exceptions\UnauthorizedException;
+use Yihang\Permission\Exceptions\UnauthorizedException;
 
 class RoleOrPermissionMiddleware
 {

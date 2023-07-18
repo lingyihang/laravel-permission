@@ -35,7 +35,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Spatie\\Permission\\": "src"
+            "Yihang\\Permission\\": "src"
         },
         "files": [
             "src/helpers.php"
@@ -43,13 +43,13 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Spatie\\Permission\\Test\\": "tests"
+            "Yihang\\Permission\\Test\\": "tests"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Spatie\\Permission\\PermissionServiceProvider"
+                "Yihang\\Permission\\PermissionServiceProvider"
             ]
         }
     },

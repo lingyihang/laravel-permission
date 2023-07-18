@@ -1,11 +1,11 @@
 <?php
 
-namespace Spatie\Permission\Commands;
+namespace Yihang\Permission\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
-use Spatie\Permission\Contracts\Permission as PermissionContract;
-use Spatie\Permission\Contracts\Role as RoleContract;
+use Yihang\Permission\Contracts\Permission as PermissionContract;
+use Yihang\Permission\Contracts\Role as RoleContract;
 
 class Show extends Command
 {
