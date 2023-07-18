@@ -1,8 +1,8 @@
 {
-    "name": "spatie/laravel-permission",
-    "description": "Permission handling for Laravel 6.0 and up",
+    "name": "lingyihang/laravel-permission",
+    "description": "Permission handling for Laravel 6.0 and up with many company",
     "keywords": [
-        "spatie",
+        "lingyihang",
         "laravel",
         "permission",
         "permissions",
@@ -11,7 +11,7 @@
         "rbac",
         "security"
     ],
-    "homepage": "https://github.com/spatie/laravel-permission",
+    "homepage": "https://github.com/lingyihang/laravel-permission",
     "license": "MIT",
     "authors": [
         {
