@@ -126,18 +126,18 @@ class PermissionRegistrar
 
         $this->permissions = $this->cache->remember(self::$cacheKey, self::$cacheExpirationTime, function () {
             // make the cache smaller using an array with only required fields
-            return $this->getPermissionClass()->select('id', 'id as i', 'name as n', 'guard_name as g')
-                ->with('roles:id,id as i,name as n,guard_name as g')->get()
+            return $this->getPermissionClass()->select('id', 'id as i', 'name as n', 'guard_name as g', 'company_id as c')
+                ->with('roles:id,id as i,name as n,guard_name as g, company_id as c')->get()
                 ->map(function ($permission) {
-                    return $permission->only('i', 'n', 'g') +
-                        ['r' => $permission->roles->map->only('i', 'n', 'g')->all()];
+                    return $permission->only('i', 'n', 'g', 'c') +
+                        ['r' => $permission->roles->map->only('i', 'n', 'g', 'c')->all()];
                 })->all();
         });
 
         if (is_array($this->permissions)) {
             $this->permissions = $this->getPermissionClass()::hydrate(
                 collect($this->permissions)->map(function ($item) {
-                    return ['id' => $item['i'] ?? $item['id'], 'name' => $item['n'] ?? $item['name'], 'guard_name' => $item['g'] ?? $item['guard_name']];
+                    return ['id' => $item['i'] ?? $item['id'], 'name' => $item['n'] ?? $item['name'], 'guard_name' => $item['g'] ?? $item['guard_name'], 'company_id'=>$item['c']??$item['company_id']];
                 })->all()
             )
             ->each(function ($permission, $i) {
@@ -236,6 +236,7 @@ class PermissionRegistrar
             'id' => $roleId,
             'name' => $item['n'] ?? $item['name'],
             'guard_name' => $item['g'] ?? $item['guard_name'],
+            'company_id' => $item['c'] ?? $item['company_id']
         ]);
     }
 }
