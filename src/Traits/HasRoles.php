@@ -55,10 +55,10 @@ trait HasRoles
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param string|int|array|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection $roles
      * @param string $guard
-     *
+     * @param int $companyId
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeRole(Builder $query, $roles, $guard = null): Builder
+    public function scopeRole(Builder $query, $roles, $guard = null, int $companyId = 0): Builder
     {
         if ($roles instanceof Collection) {
             $roles = $roles->all();
@@ -68,14 +68,14 @@ trait HasRoles
             $roles = [$roles];
         }
 
-        $roles = array_map(function ($role) use ($guard) {
+        $roles = array_map(function ($role) use ($guard,$companyId) {
             if ($role instanceof Role) {
                 return $role;
             }
 
             $method = is_numeric($role) ? 'findById' : 'findByName';
 
-            return $this->getRoleClass()->{$method}($role, $guard ?: $this->getDefaultGuardName());
+            return $this->getRoleClass()->{$method}($role, $guard ?: $this->getDefaultGuardName(), $companyId);
         }, $roles);
 
         return $query->whereHas('roles', function (Builder $subQuery) use ($roles) {
@@ -85,27 +85,27 @@ trait HasRoles
 
     /**
      * Assign the given role to the model.
-     *
+     * @param int $companyId
      * @param array|string|int|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection ...$roles
      *
      * @return $this
      */
-    public function assignRole(...$roles)
+    public function assignRole(int $companyId, ...$roles)
     {
         $roles = collect($roles)
             ->flatten()
-            ->map(function ($role) {
+            ->map(function ($role)use($companyId) {
                 if (empty($role)) {
                     return false;
                 }
 
-                return $this->getStoredRole($role);
+                return $this->getStoredRole($role, $companyId);
             })
             ->filter(function ($role) {
                 return $role instanceof Role;
             })
-            ->each(function ($role) {
-                $this->ensureModelSharesGuard($role);
+            ->each(function ($role)use($companyId) {
+                $this->ensureModelSharesGuard($role, $companyId);
             })
             ->map->id
             ->all();
@@ -139,9 +139,9 @@ trait HasRoles
      *
      * @param string|int|\Yihang\Permission\Contracts\Role $role
      */
-    public function removeRole($role)
+    public function removeRole($role, int $companyId)
     {
-        $this->roles()->detach($this->getStoredRole($role));
+        $this->roles()->detach($this->getStoredRole($role, $companyId));
 
         $this->load('roles');
 
@@ -157,11 +157,11 @@ trait HasRoles
      *
      * @return $this
      */
-    public function syncRoles(...$roles)
+    public function syncRoles(int $companyId,...$roles)
     {
         $this->roles()->detach();
 
-        return $this->assignRole($roles);
+        return $this->assignRole($companyId, $roles);
     }
 
     /**
@@ -169,9 +169,10 @@ trait HasRoles
      *
      * @param string|int|array|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection $roles
      * @param string|null $guard
+     * @param int $companyId
      * @return bool
      */
-    public function hasRole($roles, string $guard = null): bool
+    public function hasRole($roles, string $guard = null, int $companyId = 0): bool
     {
         if (is_string($roles) && false !== strpos($roles, '|')) {
             $roles = $this->convertPipeToArray($roles);
@@ -179,14 +180,14 @@ trait HasRoles
 
         if (is_string($roles)) {
             return $guard
-                ? $this->roles->where('guard_name', $guard)->contains('name', $roles)
-                : $this->roles->contains('name', $roles);
+                ? $this->roles->where('guard_name', $guard)->where('company_id', $companyId)->contains('name', $roles)
+                : $this->roles->where('company_id', $companyId)->contains('name', $roles);
         }
 
         if (is_int($roles)) {
             return $guard
-                ? $this->roles->where('guard_name', $guard)->contains('id', $roles)
-                : $this->roles->contains('id', $roles);
+                ? $this->roles->where('guard_name', $guard)->where('company_id', $companyId)->contains('id', $roles)
+                : $this->roles->where('company_id', $companyId)->contains('id', $roles);
         }
 
         if ($roles instanceof Role) {
@@ -195,7 +196,7 @@ trait HasRoles
 
         if (is_array($roles)) {
             foreach ($roles as $role) {
-                if ($this->hasRole($role, $guard)) {
+                if ($this->hasRole($role, $guard, $companyId)) {
                     return true;
                 }
             }
@@ -203,21 +204,22 @@ trait HasRoles
             return false;
         }
 
-        return $roles->intersect($guard ? $this->roles->where('guard_name', $guard) : $this->roles)->isNotEmpty();
+        return $roles->intersect($guard ? $this->roles->where('guard_name', $guard)->where('company_id', $companyId) : $this->roles->where('company_id', $companyId))->isNotEmpty();
     }
 
     /**
      * Determine if the model has any of the given role(s).
      *
      * Alias to hasRole() but without Guard controls
-     *
+     * @param string $guard
+     * @param int $companyId
      * @param string|int|array|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection $roles
      *
      * @return bool
      */
-    public function hasAnyRole(...$roles): bool
+    public function hasAnyRole(string $guard = null, int $companyId = 0,...$roles): bool
     {
-        return $this->hasRole($roles);
+        return $this->hasRole($roles, $guard, $companyId);
     }
 
     /**
@@ -225,9 +227,10 @@ trait HasRoles
      *
      * @param  string|array|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection  $roles
      * @param  string|null  $guard
+     * @param int $companyId
      * @return bool
      */
-    public function hasAllRoles($roles, string $guard = null): bool
+    public function hasAllRoles($roles, string $guard = null, int $companyId = 0): bool
     {
         if (is_string($roles) && false !== strpos($roles, '|')) {
             $roles = $this->convertPipeToArray($roles);
@@ -235,8 +238,8 @@ trait HasRoles
 
         if (is_string($roles)) {
             return $guard
-                ? $this->roles->where('guard_name', $guard)->contains('name', $roles)
-                : $this->roles->contains('name', $roles);
+                ? $this->roles->where('guard_name', $guard)->where('company_id', $companyId)->contains('name', $roles)
+                : $this->roles->where('company_id', $companyId)->contains('name', $roles);
         }
 
         if ($roles instanceof Role) {
@@ -249,8 +252,8 @@ trait HasRoles
 
         return $roles->intersect(
             $guard
-                ? $this->roles->where('guard_name', $guard)->pluck('name')
-                : $this->getRoleNames()
+                ? $this->roles->where('guard_name', $guard)->where('company_id', $companyId)->pluck('name')
+                : $this->getRoleNames($companyId)
         ) == $roles;
     }
 
@@ -259,9 +262,10 @@ trait HasRoles
      *
      * @param  string|array|\Yihang\Permission\Contracts\Role|\Illuminate\Support\Collection  $roles
      * @param  string|null  $guard
+     * @param int $companyId
      * @return bool
      */
-    public function hasExactRoles($roles, string $guard = null): bool
+    public function hasExactRoles($roles, string $guard = null, int $companyId = 0): bool
     {
         if (is_string($roles) && false !== strpos($roles, '|')) {
             $roles = $this->convertPipeToArray($roles);
@@ -279,7 +283,7 @@ trait HasRoles
             return $role instanceof Role ? $role->name : $role;
         });
 
-        return $this->roles->count() == $roles->count() && $this->hasAllRoles($roles, $guard);
+        return $this->roles->where('company_id', $companyId)->count() == $roles->where('company_id', $companyId)->count() && $this->hasAllRoles($roles, $guard, $companyId);
     }
 
     /**
@@ -290,21 +294,21 @@ trait HasRoles
         return $this->permissions;
     }
 
-    public function getRoleNames(): Collection
+    public function getRoleNames(int $companyId): Collection
     {
-        return $this->roles->pluck('name');
+        return $this->roles->where('company_id', $companyId)->pluck('name');
     }
 
-    protected function getStoredRole($role): Role
+    protected function getStoredRole($role, int $companyId): Role
     {
         $roleClass = $this->getRoleClass();
 
         if (is_numeric($role)) {
-            return $roleClass->findById($role, $this->getDefaultGuardName());
+            return $roleClass->findById($role, $this->getDefaultGuardName(), $companyId);
         }
 
         if (is_string($role)) {
-            return $roleClass->findByName($role, $this->getDefaultGuardName());
+            return $roleClass->findByName($role, $this->getDefaultGuardName(), $companyId);
         }
 
         return $role;

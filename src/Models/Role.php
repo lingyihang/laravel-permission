@@ -74,32 +74,32 @@ class Role extends Model implements RoleContract
      *
      * @param string $name
      * @param string|null $guardName
-     *
+     * @param int $companyId
      * @return \Yihang\Permission\Contracts\Role|\Yihang\Permission\Models\Role
      *
      * @throws \Yihang\Permission\Exceptions\RoleDoesNotExist
      */
-    public static function findByName(string $name, $guardName = null): RoleContract
+    public static function findByName(string $name, $guardName = null, int $companyId = 0): RoleContract
     {
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
 
-        $role = static::where('name', $name)->where('guard_name', $guardName)->first();
+        $role = static::where('name', $name)->where('guard_name', $guardName)->where('company_id', $companyId)->first();
 
         if (! $role) {
-            throw RoleDoesNotExist::named($name);
+            throw RoleDoesNotExist::named($name, $companyId);
         }
 
         return $role;
     }
 
-    public static function findById(int $id, $guardName = null): RoleContract
+    public static function findById(int $id, $guardName = null, int $companyId = 0): RoleContract
     {
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
 
-        $role = static::where('id', $id)->where('guard_name', $guardName)->first();
+        $role = static::where('id', $id)->where('guard_name', $guardName)->where('company_id', $companyId)->first();
 
         if (! $role) {
-            throw RoleDoesNotExist::withId($id);
+            throw RoleDoesNotExist::withId($id, $companyId);
         }
 
         return $role;
@@ -110,17 +110,17 @@ class Role extends Model implements RoleContract
      *
      * @param string $name
      * @param string|null $guardName
-     *
-     * @return \Yihang\Permission\Contracts\Role
+     * @param int $companyId
+     * @return \Illuminate\Database\Eloquent\Builder|Model|RoleContract
      */
-    public static function findOrCreate(string $name, $guardName = null): RoleContract
+    public static function findOrCreate(string $name, $guardName = null, int $companyId = 0): RoleContract
     {
         $guardName = $guardName ?? Guard::getDefaultName(static::class);
 
-        $role = static::where('name', $name)->where('guard_name', $guardName)->first();
+        $role = static::where('name', $name)->where('guard_name', $guardName)->where('company_id', $companyId)->first();
 
         if (! $role) {
-            return static::query()->create(['name' => $name, 'guard_name' => $guardName]);
+            return static::query()->create(['name' => $name, 'guard_name' => $guardName, 'company_id'=>$companyId]);
         }
 
         return $role;
@@ -129,13 +129,14 @@ class Role extends Model implements RoleContract
     /**
      * Determine if the user may perform the given permission.
      *
-     * @param string|Permission $permission
      *
+     * @param string|\Yihang\Permission\Contracts\Permission $permission
+     * @param int $companyId
      * @return bool
      *
      * @throws \Yihang\Permission\Exceptions\GuardDoesNotMatch
      */
-    public function hasPermissionTo($permission): bool
+    public function hasPermissionTo($permission, int $companyId): bool
     {
         if (config('permission.enable_wildcard_permission', false)) {
             return $this->hasWildcardPermission($permission, $this->getDefaultGuardName());
@@ -144,15 +145,15 @@ class Role extends Model implements RoleContract
         $permissionClass = $this->getPermissionClass();
 
         if (is_string($permission)) {
-            $permission = $permissionClass->findByName($permission, $this->getDefaultGuardName());
+            $permission = $permissionClass->findByName($permission, $this->getDefaultGuardName(), $companyId);
         }
 
         if (is_int($permission)) {
-            $permission = $permissionClass->findById($permission, $this->getDefaultGuardName());
+            $permission = $permissionClass->findById($permission, $this->getDefaultGuardName(), $companyId);
         }
 
-        if (! $this->getGuardNames()->contains($permission->guard_name)) {
-            throw GuardDoesNotMatch::create($permission->guard_name, $this->getGuardNames());
+        if (!$this->getGuardNames()->contains($permission->guard_name)) {
+            throw GuardDoesNotMatch::create($permission->guard_name, $this->getGuardNames(), $companyId);
         }
 
         return $this->permissions->contains('id', $permission->id);

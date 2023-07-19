@@ -57,12 +57,12 @@ trait HasPermissions
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param string|int|array|\Yihang\Permission\Contracts\Permission|\Illuminate\Support\Collection $permissions
-     *
+     * @param int $companyId
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopePermission(Builder $query, $permissions): Builder
+    public function scopePermission(Builder $query, $permissions, int $companyId): Builder
     {
-        $permissions = $this->convertToPermissionModels($permissions);
+        $permissions = $this->convertToPermissionModels($permissions, $companyId);
 
         $rolesWithPermissions = array_unique(array_reduce($permissions, function ($result, $permission) {
             return array_merge($result, $permission->roles->all());
@@ -82,11 +82,11 @@ trait HasPermissions
 
     /**
      * @param string|int|array|\Yihang\Permission\Contracts\Permission|\Illuminate\Support\Collection $permissions
-     *
+     * @param int $companyId
      * @return array
      * @throws \Yihang\Permission\Exceptions\PermissionDoesNotExist
      */
-    protected function convertToPermissionModels($permissions): array
+    protected function convertToPermissionModels($permissions, int $companyId): array
     {
         if ($permissions instanceof Collection) {
             $permissions = $permissions->all();
@@ -94,13 +94,13 @@ trait HasPermissions
 
         $permissions = is_array($permissions) ? $permissions : [$permissions];
 
-        return array_map(function ($permission) {
+        return array_map(function ($permission)use($companyId) {
             if ($permission instanceof Permission) {
                 return $permission;
             }
             $method = is_string($permission) ? 'findByName' : 'findById';
 
-            return $this->getPermissionClass()->{$method}($permission, $this->getDefaultGuardName());
+            return $this->getPermissionClass()->{$method}($permission, $this->getDefaultGuardName(), $companyId);
         }, $permissions);
     }
 
@@ -109,14 +109,14 @@ trait HasPermissions
      *
      * @param string|int|\Yihang\Permission\Contracts\Permission $permission
      * @param string|null $guardName
-     *
+     * @param int $companyId
      * @return bool
      * @throws PermissionDoesNotExist
      */
-    public function hasPermissionTo($permission, $guardName = null): bool
+    public function hasPermissionTo($permission, $guardName = null, int $companyId = 0): bool
     {
         if (config('permission.enable_wildcard_permission', false)) {
-            return $this->hasWildcardPermission($permission, $guardName);
+            return $this->hasWildcardPermission($permission, $guardName, $companyId);
         }
 
         $permissionClass = $this->getPermissionClass();
@@ -124,19 +124,21 @@ trait HasPermissions
         if (is_string($permission)) {
             $permission = $permissionClass->findByName(
                 $permission,
-                $guardName ?? $this->getDefaultGuardName()
+                $guardName ?? $this->getDefaultGuardName(),
+                $companyId
             );
         }
 
         if (is_int($permission)) {
             $permission = $permissionClass->findById(
                 $permission,
-                $guardName ?? $this->getDefaultGuardName()
+                $guardName ?? $this->getDefaultGuardName(),
+                $companyId
             );
         }
 
-        if (! $permission instanceof Permission) {
-            throw new PermissionDoesNotExist;
+        if (!$permission instanceof Permission) {
+            throw new PermissionDoesNotExist();
         }
 
         return $this->hasDirectPermission($permission) || $this->hasPermissionViaRole($permission);
@@ -147,15 +149,15 @@ trait HasPermissions
      *
      * @param string|int|\Yihang\Permission\Contracts\Permission $permission
      * @param string|null $guardName
-     *
+     * @param int $companyId
      * @return bool
      */
-    protected function hasWildcardPermission($permission, $guardName = null): bool
+    protected function hasWildcardPermission($permission, $guardName = null, int $companyId = 0): bool
     {
         $guardName = $guardName ?? $this->getDefaultGuardName();
 
         if (is_int($permission)) {
-            $permission = $this->getPermissionClass()->findById($permission, $guardName);
+            $permission = $this->getPermissionClass()->findById($permission, $guardName, $companyId);
         }
 
         if ($permission instanceof Permission) {
@@ -186,13 +188,13 @@ trait HasPermissions
      *
      * @param string|int|\Yihang\Permission\Contracts\Permission $permission
      * @param string|null $guardName
-     *
+     * @param int $companyId
      * @return bool
      */
-    public function checkPermissionTo($permission, $guardName = null): bool
+    public function checkPermissionTo($permission, $guardName = null, int $companyId = 0): bool
     {
         try {
-            return $this->hasPermissionTo($permission, $guardName);
+            return $this->hasPermissionTo($permission, $guardName, $companyId);
         } catch (PermissionDoesNotExist $e) {
             return false;
         }
@@ -205,12 +207,12 @@ trait HasPermissions
      *
      * @return bool
      */
-    public function hasAnyPermission(...$permissions): bool
+    public function hasAnyPermission($guardName = null, int $companyId = 0, ...$permissions): bool
     {
         $permissions = collect($permissions)->flatten();
 
         foreach ($permissions as $permission) {
-            if ($this->checkPermissionTo($permission)) {
+            if ($this->checkPermissionTo($permission, $guardName, $companyId)) {
                 return true;
             }
         }
@@ -243,32 +245,33 @@ trait HasPermissions
      * Determine if the model has, via roles, the given permission.
      *
      * @param \Yihang\Permission\Contracts\Permission $permission
-     *
+     * @param string|null $guardName
+     * @param int $companyId
      * @return bool
      */
-    protected function hasPermissionViaRole(Permission $permission): bool
+    protected function hasPermissionViaRole(Permission $permission, $guardName = null, int $companyId = 0): bool
     {
-        return $this->hasRole($permission->roles);
+        return $this->hasRole($permission->roles, $guardName, $companyId);
     }
 
     /**
      * Determine if the model has the given permission.
      *
      * @param string|int|\Yihang\Permission\Contracts\Permission $permission
-     *
+     * @param int $companyId
      * @return bool
      * @throws PermissionDoesNotExist
      */
-    public function hasDirectPermission($permission): bool
+    public function hasDirectPermission($permission, int $companyId = 0): bool
     {
         $permissionClass = $this->getPermissionClass();
 
         if (is_string($permission)) {
-            $permission = $permissionClass->findByName($permission, $this->getDefaultGuardName());
+            $permission = $permissionClass->findByName($permission, $this->getDefaultGuardName(), $companyId);
         }
 
         if (is_int($permission)) {
-            $permission = $permissionClass->findById($permission, $this->getDefaultGuardName());
+            $permission = $permissionClass->findById($permission, $this->getDefaultGuardName(), $companyId);
         }
 
         if (! $permission instanceof Permission) {
@@ -311,22 +314,22 @@ trait HasPermissions
      *
      * @return $this
      */
-    public function givePermissionTo(...$permissions)
+    public function givePermissionTo(int $companyId = 0, ...$permissions)
     {
         $permissions = collect($permissions)
             ->flatten()
-            ->map(function ($permission) {
+            ->map(function ($permission)use($companyId) {
                 if (empty($permission)) {
                     return false;
                 }
 
-                return $this->getStoredPermission($permission);
+                return $this->getStoredPermission($permission, $companyId);
             })
             ->filter(function ($permission) {
                 return $permission instanceof Permission;
             })
-            ->each(function ($permission) {
-                $this->ensureModelSharesGuard($permission);
+            ->each(function ($permission)use($companyId) {
+                $this->ensureModelSharesGuard($permission, $companyId);
             })
             ->map->id
             ->all();
@@ -357,28 +360,28 @@ trait HasPermissions
 
     /**
      * Remove all current permissions and set the given ones.
-     *
+     * @param int $companyId
      * @param string|int|array|\Yihang\Permission\Contracts\Permission|\Illuminate\Support\Collection $permissions
      *
      * @return $this
      */
-    public function syncPermissions(...$permissions)
+    public function syncPermissions(int $companyId = 0,...$permissions)
     {
         $this->permissions()->detach();
 
-        return $this->givePermissionTo($permissions);
+        return $this->givePermissionTo($companyId, $permissions);
     }
 
     /**
      * Revoke the given permission.
      *
      * @param \Yihang\Permission\Contracts\Permission|\Yihang\Permission\Contracts\Permission[]|string|string[] $permission
-     *
+     * @param int $companyId
      * @return $this
      */
-    public function revokePermissionTo($permission)
+    public function revokePermissionTo($permission, int $companyId)
     {
-        $this->permissions()->detach($this->getStoredPermission($permission));
+        $this->permissions()->detach($this->getStoredPermission($permission, $companyId));
 
         $this->forgetCachedPermissions();
 
@@ -394,26 +397,23 @@ trait HasPermissions
 
     /**
      * @param string|int|array|\Yihang\Permission\Contracts\Permission|\Illuminate\Support\Collection $permissions
-     *
+     * @param int $companyId
      * @return \Yihang\Permission\Contracts\Permission|\Yihang\Permission\Contracts\Permission[]|\Illuminate\Support\Collection
      */
-    protected function getStoredPermission($permissions)
+    protected function getStoredPermission($permissions, int $companyId)
     {
         $permissionClass = $this->getPermissionClass();
 
         if (is_numeric($permissions)) {
-            return $permissionClass->findById($permissions, $this->getDefaultGuardName());
+            return $permissionClass->findById($permissions, $this->getDefaultGuardName(), $companyId);
         }
 
         if (is_string($permissions)) {
-            return $permissionClass->findByName($permissions, $this->getDefaultGuardName());
+            return $permissionClass->findByName($permissions, $this->getDefaultGuardName(), $companyId);
         }
 
         if (is_array($permissions)) {
-            return $permissionClass
-                ->whereIn('name', $permissions)
-                ->whereIn('guard_name', $this->getGuardNames())
-                ->get();
+            return $permissionClass->whereIn('name', $permissions)->whereIn('guard_name', $this->getGuardNames())->where('company_id', $companyId)->get();
         }
 
         return $permissions;
@@ -421,13 +421,13 @@ trait HasPermissions
 
     /**
      * @param \Yihang\Permission\Contracts\Permission|\Yihang\Permission\Contracts\Role $roleOrPermission
-     *
+     * @param int $companyId
      * @throws \Yihang\Permission\Exceptions\GuardDoesNotMatch
      */
-    protected function ensureModelSharesGuard($roleOrPermission)
+    protected function ensureModelSharesGuard($roleOrPermission, int $companyId)
     {
         if (! $this->getGuardNames()->contains($roleOrPermission->guard_name)) {
-            throw GuardDoesNotMatch::create($roleOrPermission->guard_name, $this->getGuardNames());
+            throw GuardDoesNotMatch::create($roleOrPermission->guard_name, $this->getGuardNames(), $companyId);
         }
     }
 
@@ -459,7 +459,7 @@ trait HasPermissions
         $permissions = collect($permissions)->flatten();
 
         foreach ($permissions as $permission) {
-            if (! $this->hasDirectPermission($permission)) {
+            if (!$this->hasDirectPermission($permission)) {
                 return false;
             }
         }
